@@ -11,9 +11,7 @@
 
 データは別リポジトリ（`daifuku-content`）。コードとデータのリポジトリを分ける理由も DESIGN.md にある。
 
-開発は private のリポジトリで行っていて、**公開版には実データの測定値（`notes/`）を含めない。**
-写しているのは `tools/publish.mjs` の許可リストにあるファイルだけで、
-写す前に実額や口座名が紛れていないかを検査している。
+開発は private のリポジトリで行っていて、**公開版には実データの測定値（`notes/`）を含めない**（下の「公開」）。
 
 ## 開発
 
@@ -23,6 +21,27 @@ npm run dev        # ローカル D1 で起動（http://localhost:8788）
 npm run typecheck
 npm run deploy
 ```
+
+## 公開
+
+`kazuki-page/daifuku`（公開）へは**ファイルを写すだけ**で、`git push` で履歴は送らない。
+private の過去コミットには実額がそのまま残っているので、履歴を流した時点で
+いまファイルを綺麗にしてあることに意味が無くなる。
+
+```sh
+npm run publish:public              # ../daifuku-public へ写す
+git -C ../daifuku-public status     # 差分を目で見る
+git -C ../daifuku-public commit -a -m '…'
+git -C ../daifuku-public push
+```
+
+許可リストに書いたファイルだけが行く。書いていないものは行かない（`notes/` が落ちるのもこれ）。
+写す前に中身を検査し、実額や口座名が紛れていれば**1ファイルも書かずに止まる**。
+意図した例外は `tools/publish-allow.txt` に完全一致で置く。
+
+**測って数字が出たら `notes/実測.md` に書く。** DESIGN.md は公開されるので、
+そこに実額を書くと出ていく（ゲートが止めるが、止まってから直すより先に分けるほうが楽）。
+決めた理由は DESIGN.md「公開の仕方」。
 
 ## デモ版
 
