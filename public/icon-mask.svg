@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- maskable と apple-touch-icon 用。icon.svg との違いは**角を丸めていない**ことだけ。
+       OS が自前の形（円・角丸・しずく）で抜くので、こちらが先に丸めておくと
+       OS の型のほうが角ばっていたときに隅が透けて欠ける。地は端まで塗る。
+       図は中央80%の円（半径205）に収める約束で、腰の張った点で 198。 -->
+  <rect width="512" height="512" fill="#e8f1ff"/>
+  <path d="M80 296 C80 216 159 152 256 152 C353 152 432 216 432 296
+           A64 64 0 0 1 368 360 L144 360 A64 64 0 0 1 80 296 Z"
+        fill="none" stroke="#003156" stroke-width="36" stroke-linejoin="round"/>
+  <ellipse cx="256" cy="264" rx="98" ry="48" fill="#003156"/>
+</svg>

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "daifuku-demo",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["wrangler", "dev", "--config", "wrangler.demo.jsonc", "--port", "8789"],
+      "port": 8789
+    }
+  ]
+}

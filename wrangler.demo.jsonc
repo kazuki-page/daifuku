@@ -1,0 +1,60 @@
+/**
+ * デモ版。`npm run deploy:demo` で使う。
+ *
+ * **本番（wrangler.jsonc）とは別の Worker で、D1 の紐付けを持たない。**
+ * デモの中身は public/demo.js がブラウザの localStorage で引き受けるので、
+ * ここに置くものは何も無い。バインドを書かないこと自体が、
+ * 「デモから本番の家計データへ届く道が無い」という保証になる。
+ *
+ * 合鍵（AUTH_TOKEN）も入れない。入れないと src/index.ts は認証なしで通す。
+ * Cloudflare Access もこのホスト名には掛けない。誰でも入れるのが目的。
+ *
+ * **GITHUB_TOKEN も入れない。** ここは誰でも開けるので、入れると
+ * 見ず知らずの人の操作で daifuku-content に書き込みが走る。
+ * `npx wrangler secret put GITHUB_TOKEN --config wrangler.demo.jsonc` は
+ * 打たないこと。鍵が無ければ書き出しは動かないが、それ以前に
+ * demo() が /api/* を全部 503 で断るのでここまで来ない。
+ */
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "daifuku-demo",
+	"main": "./src/index.ts",
+	"compatibility_date": "2026-08-19",
+
+	/**
+	 * 中身は作り物しか無いが、URL が2つあると OGP の指す先が割れる。
+	 * 入口を daifuku-demo.kazuki.page 1つに絞る。
+	 */
+	"preview_urls": false,
+	"workers_dev": false,
+
+	"routes": [
+		{
+			"pattern": "daifuku-demo.kazuki.page",
+			"custom_domain": true
+		}
+	],
+
+	/**
+	 * デモが "1" のとき、src/index.ts は
+	 *   - 合鍵を見ない
+	 *   - /api/* をすべて 503 で断る
+	 *   - index.html に OGP と demo.js を差し込む
+	 * という動きに切り替わる。
+	 */
+	"vars": {
+		"DEMO": "1"
+	},
+
+	/** 書き出す先が無いので Cron は置かない。 */
+
+	"observability": {
+		"enabled": true
+	},
+
+	"assets": {
+		"directory": "./public",
+		"binding": "ASSETS",
+		"run_worker_first": true
+	}
+}

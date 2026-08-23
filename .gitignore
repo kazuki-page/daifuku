@@ -1,0 +1,11 @@
+node_modules/
+.wrangler/
+.dev.vars
+*.log
+
+# 公開用リポジトリ側に置く目印（tools/publish.mjs）
+.publish-target
+
+# 生成物であり、中身は実際の金額データそのもの。
+# コードは将来公開しうるので、データ側の何ひとつここに置かない（DESIGN.md「コードとデータはリポジトリを分ける」）。
+tools/import.sql

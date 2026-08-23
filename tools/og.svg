@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs><filter id="sh" x="-30%" y="-30%" width="160%" height="160%">
+    <feDropShadow dx="0" dy="14" stdDeviation="20" flood-color="#0a2338" flood-opacity="0.22"/>
+  </filter></defs>
+  <rect width="1200" height="630" fill="#e8f1ff"/>
+  <g transform="translate(126.11,168.4) scale(0.2377) translate(-256,-256)">
+    <path d="M80 296 C80 216 159 152 256 152 C353 152 432 216 432 296
+             A64 64 0 0 1 368 360 L144 360 A64 64 0 0 1 80 296 Z"
+          fill="none" stroke="#003156" stroke-width="36" stroke-linejoin="round"/>
+    <ellipse cx="256" cy="264" rx="98" ry="48" fill="#003156"/></g>
+  <text x="196.23" y="190" fill="#003156" font-size="60" font-weight="700" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" letter-spacing="-2">daifuku</text>
+  <text x="80" y="306" fill="#003156" font-size="42" font-weight="600" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" >帳尻は合わせない。</text>
+  <text x="80" y="364" fill="#003156" font-size="42" font-weight="600" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" >だから続く。</text>
+  <text x="80" y="420" fill="#4a6b85" font-size="24" font-weight="400" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" >入出金と資産残高を切り離して記録する家計簿</text>
+  <text x="80" y="456" fill="#4a6b85" font-size="22" font-weight="400" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" >Cloudflare Workers ＋ D1</text>
+  <text x="80" y="520" fill="#8a5a00" font-size="30" font-weight="600" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" >daifuku-demo.kazuki.page</text>
+  <g filter="url(#sh)" transform="translate(672,64) scale(1.12)">
+    <rect x="0" y="0" width="400" height="620" rx="34" fill="#003156"/>
+    <rect x="12" y="12" width="376" height="596" rx="24" fill="#e8f1ff"/>
+
+    <!-- タブ。黄はここ1箇所だけ。現在地＝目を向ける先 -->
+    <rect x="30" y="40" width="64" height="30" rx="15" fill="#FFB94D"/><text x="62" y="61.12" fill="#003156" font-size="17" font-weight="700" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" text-anchor="middle">入力</text>
+    <text x="112" y="61" fill="#4a6b85" font-size="17" font-weight="400" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" >概要</text> <text x="168" y="61" fill="#4a6b85" font-size="17" font-weight="400" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" >入出金</text> <text x="242" y="61" fill="#4a6b85" font-size="17" font-weight="400" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" >資産</text>
+    <text x="316" y="62" fill="#4a6b85" font-size="18" font-weight="400" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" >⚙</text>
+
+    <!-- 種別。選択中は紺＝押して確定するもの -->
+    <rect x="30" y="92" width="66" height="32" rx="16" fill="#003156"/><text x="63" y="114.12" fill="#ffffff" font-size="17" font-weight="700" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" text-anchor="middle">支出</text>
+    <rect x="104" y="92" width="66" height="32" rx="16" fill="#ffffff" stroke="#cfe0f2" stroke-width="1.5"/><text x="137" y="114.12" fill="#4a6b85" font-size="17" font-weight="400" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" text-anchor="middle">収入</text>
+    <rect x="178" y="92" width="66" height="32" rx="16" fill="#ffffff" stroke="#cfe0f2" stroke-width="1.5"/><text x="211" y="114.12" fill="#4a6b85" font-size="17" font-weight="400" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" text-anchor="middle">投資</text>
+    <rect x="252" y="92" width="66" height="32" rx="16" fill="#ffffff" stroke="#cfe0f2" stroke-width="1.5"/><text x="285" y="114.12" fill="#4a6b85" font-size="17" font-weight="400" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" text-anchor="middle">振替</text>
+
+    <rect x="30" y="140" width="340" height="86" rx="18" fill="#ffffff"/>
+    <text x="52" y="199" fill="#4a6b85" font-size="34" font-weight="400" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" >¥</text>
+    <text x="88" y="201" fill="#003156" font-size="50" font-weight="700" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" >1,280</text>
+
+    <rect x="30" y="244" width="62" height="30" rx="15" fill="#003156"/><text x="61" y="264.76" fill="#ffffff" font-size="16" font-weight="700" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" text-anchor="middle">今日</text>
+    <rect x="100" y="244" width="62" height="30" rx="15" fill="#ffffff" stroke="#cfe0f2" stroke-width="1.5"/><text x="131" y="264.76" fill="#4a6b85" font-size="16" font-weight="400" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" text-anchor="middle">昨日</text>
+    <rect x="170" y="244" width="78" height="30" rx="15" fill="#ffffff" stroke="#cfe0f2" stroke-width="1.5"/><text x="209" y="264.76" fill="#4a6b85" font-size="16" font-weight="400" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" text-anchor="middle">一昨日</text>
+
+    <!-- 候補。この道具の中心なので、必ず入れる -->
+    <text x="30" y="306" fill="#4a6b85" font-size="15" font-weight="400" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" >候補</text>
+    <rect x="30" y="318" width="88" height="34" rx="17" fill="#ffffff" stroke="#003156" stroke-width="1.5"/><text x="74" y="340.76" fill="#003156" font-size="16" font-weight="400" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" text-anchor="middle">昼食</text>
+    <rect x="126" y="318" width="116" height="34" rx="17" fill="#ffffff" stroke="#003156" stroke-width="1.5"/><text x="184" y="340.76" fill="#003156" font-size="16" font-weight="400" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" text-anchor="middle">コーヒー</text>
+    <rect x="250" y="318" width="102" height="34" rx="17" fill="#ffffff" stroke="#003156" stroke-width="1.5"/><text x="301" y="340.76" fill="#003156" font-size="16" font-weight="400" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" text-anchor="middle">日用品</text>
+
+    <text x="30" y="388" fill="#4a6b85" font-size="15" font-weight="400" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" >カテゴリ</text>
+    <rect x="30" y="400" width="76" height="34" rx="17" fill="#003156"/><text x="68" y="422.76" fill="#ffffff" font-size="16" font-weight="700" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" text-anchor="middle">食費</text>
+    <rect x="114" y="400" width="96" height="34" rx="17" fill="#ffffff" stroke="#cfe0f2" stroke-width="1.5"/><text x="162" y="422.76" fill="#4a6b85" font-size="16" font-weight="400" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" text-anchor="middle">日用品</text>
+    <rect x="218" y="400" width="96" height="34" rx="17" fill="#ffffff" stroke="#cfe0f2" stroke-width="1.5"/><text x="266" y="422.76" fill="#4a6b85" font-size="16" font-weight="400" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" text-anchor="middle">交通費</text>
+
+    <rect x="30" y="452" width="340" height="42" rx="12" fill="#ffffff" stroke="#cfe0f2" stroke-width="1.5"/>
+    <text x="46" y="479" fill="#93a8ba" font-size="16" font-weight="400" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" >品目（任意）</text>
+
+    <rect x="30" y="512" width="340" height="52" rx="14" fill="#003156"/>
+    <text x="200" y="545" fill="#ffffff" font-size="19" font-weight="700" font-family="ui-sans-serif, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif" text-anchor="middle">保存</text>
+  </g>
+</svg>

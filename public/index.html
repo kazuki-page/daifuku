@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>daifuku</title>
+<link rel="stylesheet" href="/style.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg">
+<!-- **apple-touch-icon は PNG でないと iOS が読まない。** SVG を指したままだと
+     ホーム画面に置いたときページのスクショが並ぶ（leaves で踏んだ罠）。
+     角は丸めない。iOS が自分で丸めるので、二重に丸めると隅が欠ける -->
+<link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png">
+<meta name="theme-color" content="#003156">
+</head>
+<body>
+<header>
+  <nav id="tabs">
+    <button data-tab="add" class="on">入力</button>
+    <button data-tab="summary">概要</button>
+    <button data-tab="tx">入出金</button>
+    <button data-tab="bal">資産</button>
+    <button data-tab="settings" aria-label="設定"><svg viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path
+      d="M4 8h7M17 8h3M4 16h3M13 16h7"/><circle cx="14" cy="8" r="2.3"/><circle cx="10" cy="16"
+      r="2.3"/></svg></button>
+  </nav>
+</header>
+
+<main>
+  <!-- 開いた瞬間にここが出る。金額にフォーカスが当たり、テンキーが立ち上がる。 -->
+  <section id="add" class="tab on">
+    <!-- 圏外で溜まった分。透明なキューにせず、必ず目に見える場所に出す。 -->
+    <div id="pending" class="pending" hidden></div>
+
+    <div class="kinds" id="kinds">
+      <button data-kind="支出" class="on">支出</button>
+      <button data-kind="収入">収入</button>
+      <button data-kind="投資">投資</button>
+      <button data-kind="振替">振替</button>
+    </div>
+
+    <div class="amount">
+      <span>¥</span>
+      <input id="amount" type="text" inputmode="numeric" placeholder="0"
+             autocomplete="off" enterkeyhint="done">
+    </div>
+
+    <div class="when">
+      <button data-days="0" class="on">今日</button>
+      <button data-days="1">昨日</button>
+      <button data-days="2">一昨日</button>
+      <input type="date" id="date" aria-label="日付">
+    </div>
+
+    <div id="transfer" class="transfer" hidden>
+      <label>移動元 <select id="from"></select></label>
+      <label>移動先 <select id="to"></select></label>
+    </div>
+
+    <div id="cands" class="cands"></div>
+
+    <div id="catsWrap">
+      <p class="hint">カテゴリ</p>
+      <div id="cats" class="cats"></div>
+    </div>
+
+    <div id="more">
+      <input id="item" placeholder="品目（任意）" autocomplete="off">
+      <select id="account"><option value="">口座（任意）</option></select>
+      <input id="memo" placeholder="メモ（任意）" autocomplete="off">
+    </div>
+
+    <label id="budgetWrap" class="budget">
+      <input type="checkbox" id="budget"> 予算として計上（対になる収入も作る）
+    </label>
+
+    <p id="err" class="err" hidden></p>
+    <button id="save" class="save">保存</button>
+  </section>
+
+  <section id="summary" class="tab"><p class="loading">読み込み中…</p></section>
+
+  <section id="tx" class="tab">
+    <div class="filters">
+      <input id="q" type="search" placeholder="品目・カテゴリ・メモを検索" autocomplete="off">
+      <select id="kind">
+        <option value="">すべての種別</option>
+        <option>支出</option><option>収入</option><option>投資</option>
+        <option>振替</option><option>メモ</option>
+      </select>
+    </div>
+    <p class="loading">読み込み中…</p>
+  </section>
+
+  <section id="bal" class="tab"><p class="loading">読み込み中…</p></section>
+
+  <section id="settings" class="tab"><p class="loading">読み込み中…</p></section>
+</main>
+
+<!-- 口座の設定。銀行の改称や用途の付け替えは普通に起きる。 -->
+<div id="acctSheet" class="sheet" hidden>
+  <div class="sheet-bg" data-close="acct"></div>
+  <form class="sheet-body" id="acctForm">
+    <div class="sheet-head">
+      <strong id="aTitle">口座の設定</strong>
+      <button type="button" data-close="acct" aria-label="閉じる">✕</button>
+    </div>
+
+    <label>機関名<input id="aInst" autocomplete="off" required></label>
+    <label>用途・サブ口座（任意）<input id="aName" autocomplete="off"></label>
+    <p class="hint" id="aPreview"></p>
+
+    <label>資産クラス<input id="aClass" list="classList" autocomplete="off"></label>
+    <datalist id="classList"></datalist>
+
+    <label class="check"><input type="checkbox" id="aRecon"> 乖離検知の対象にする</label>
+    <label class="check"><input type="checkbox" id="aArchived"> 使わなくなった（入力欄から隠す）</label>
+
+    <p class="memo" id="aUsage"></p>
+    <p id="aErr" class="err" hidden></p>
+    <div class="sheet-foot">
+      <button type="submit" class="save">保存</button>
+    </div>
+  </form>
+</div>
+
+<!-- 資産残高をまとめて記録する。月1回、全口座を一度に書き換える。 -->
+<div id="balSheet" class="sheet" hidden>
+  <div class="sheet-bg" data-close="bal"></div>
+  <form class="sheet-body" id="balForm">
+    <div class="sheet-head">
+      <strong>残高を記録</strong>
+      <button type="button" data-close="bal" aria-label="閉じる">✕</button>
+    </div>
+
+    <label>日付<input type="date" id="balDate" required></label>
+    <p class="hint" id="balNote"></p>
+
+    <div id="balRows" class="bal-rows"></div>
+
+    <div class="bal-total"><span>合計</span><strong id="balTotal">¥0</strong></div>
+
+    <p id="balErr" class="err" hidden></p>
+    <div class="sheet-foot">
+      <button type="submit" class="save">保存</button>
+    </div>
+  </form>
+</div>
+
+<!-- 記録を直す。要確認の行と入出金の一覧から開く。 -->
+<div id="sheet" class="sheet" hidden>
+  <div class="sheet-bg"></div>
+  <form class="sheet-body" id="editForm">
+    <div class="sheet-head">
+      <strong>記録を直す</strong>
+      <button type="button" id="sheetClose" aria-label="閉じる">✕</button>
+    </div>
+
+    <div class="kinds" id="eKinds">
+      <button type="button" data-kind="支出">支出</button>
+      <button type="button" data-kind="収入">収入</button>
+      <button type="button" data-kind="投資">投資</button>
+      <button type="button" data-kind="振替">振替</button>
+      <button type="button" data-kind="メモ">メモ</button>
+    </div>
+
+    <div class="grid2">
+      <label>日付<input type="date" id="eDate" required></label>
+      <label>金額<input type="text" id="eAmount" inputmode="numeric" autocomplete="off"></label>
+    </div>
+
+    <div id="eTransfer" class="grid2" hidden>
+      <label>移動元<select id="eFrom"></select></label>
+      <label>移動先<select id="eTo"></select></label>
+    </div>
+
+    <label>カテゴリ<input id="eCategory" list="catList" autocomplete="off"></label>
+    <datalist id="catList"></datalist>
+    <label>品目<input id="eItem" autocomplete="off"></label>
+    <label id="eAccountWrap">口座<select id="eAccount"></select></label>
+    <label>メモ<input id="eMemo" autocomplete="off"></label>
+
+    <p id="eErr" class="err" hidden></p>
+    <div class="sheet-foot">
+      <button type="button" id="eDelete" class="danger">削除</button>
+      <button type="submit" class="save">保存</button>
+    </div>
+  </form>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="/app.js"></script>
+</body>
+</html>

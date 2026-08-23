@@ -1,0 +1,593 @@
+/* 段階2は移行結果を目で確かめるための画面。数字が読めることだけを優先する。
+   入力画面（段階4）はここから作り直す前提なので、作り込まない。 */
+
+/* 3色から組む。紺 #003156・薄水 #e8f1ff・黄 #FFB94D。
+   kazuki.page / blog / leaves と同じ絵の具で、配合だけ変えている。
+   leaves は紺が「面」だが、こちらは薄水を面にして紺を文字と骨格へ回した。
+
+   **色に役割を持たせる。**
+     紺 … 操作（選択中の種別・カテゴリ・保存ボタン）＝押して確定するもの
+     黄 … 目を向ける先（現在地のタブ・乖離の知らせ・未送信）
+   以前はどちらも accent 一色だったので、「押すところ」と「知らせ」が同じ色だった。
+
+   **黄は地にしか使えない。** 明るい面に置くと 1.50 で読めない（leaves で同じ罠を踏んでいる）。
+   明るいほうの警告は黄を暗く寄せた #8a5a00（5.21）、暗いほうは黄そのもの（10.44）。 */
+
+:root {
+  --bg: #e8f1ff;
+  --panel: #ffffff;
+  --ink: #003156;
+  --muted: #4a6b85;     /* 4.94 */
+  --line: #cfe0f2;
+
+  --accent: #003156;    /* 操作。白を載せて 13.34 */
+  --on-accent: #ffffff;
+  --mark: #FFB94D;      /* 目を向ける先。地としてのみ */
+  --on-mark: #003156;   /* 7.82 */
+  --warn: #8a5a00;      /* 明るい面で読める黄。5.21 */
+
+  --plus: #276b4e;      /* 収入。5.59 */
+  --minus: #b4463c;     /* 削除など。4.75 */
+
+  /* 推移グラフの系列。順位ではなく意味で割り当てる（DESIGN.md「概要に何を出すか」）。
+     自分で動かす現金＝青、増える前提の投資＝緑、手の届かない共有管理＝灰。
+     灰は彩度を落としてある。「これは自分の成績ではない」と読ませたいので、
+     識別色として強い色を当てるとかえって嘘になる。
+     判別は測って選んだ: 通常視 ΔE 16.3 / 色覚型 ΔE 10.1（OKLab ×100）。 */
+  --s1: #1f6fb2;
+  --s2: #2f8f4f;
+  --s3: #9a9a92;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* 紺を面にすると leaves とダークで見分けが付かなくなるので、中立な暗色にする。 */
+    --bg: #15181b;
+    --panel: #1e2226;
+    --ink: #e8f1ff;     /* 15.66 */
+    --muted: #93a4b5;   /* 6.97 */
+    --line: #2c3238;
+
+    /* 紺のままだと地に沈むので明るくする */
+    --accent: #7fb6e8;  /* 8.28 */
+    --on-accent: #003156;
+    --mark: #FFB94D;
+    --on-mark: #003156;
+    --warn: #FFB94D;    /* 暗い面なら黄そのものが 10.44 で読める */
+
+    --plus: #6fb992;
+    --minus: #e07a6e;
+    /* 暗い地に載せ直したもの。通常視 ΔE 15.1 / 色覚型 ΔE 9.1、地との比は全て3:1以上。 */
+    --s1: #4d9ee0;
+    --s2: #46b378;
+    --s3: #82827a;
+  }
+}
+
+* { box-sizing: border-box; }
+/* .transfer や .budget に display を付けているので、hidden 属性が負ける。
+   属性で消したものは必ず消えるようにしておく。 */
+[hidden] { display: none !important; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: system-ui, -apple-system, "Hiragino Sans", sans-serif;
+  font-size: 15px; line-height: 1.6;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+header {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--bg); border-bottom: 1px solid var(--line);
+  padding: .3rem 1rem 0;
+}
+
+nav { display: flex; gap: .25rem; }
+nav button {
+  flex: 1; padding: .5rem; border: 0; background: none; color: var(--muted);
+  font: inherit; font-size: .9rem; cursor: pointer;
+  /* 平常時に黄が出るのはここだけなので、2px では色が見えない。3px に上げる。
+     太さを .on だけで変えると押していない側と1px ずれるので、透明の側も同じ太さで持つ。 */
+  border-bottom: 3px solid transparent;
+}
+nav button.on { color: var(--ink); font-weight: 600; border-bottom-color: var(--mark); }
+/* 設定は線画のアイコン。絵文字は端末ごとに色が変わるので、3色で組んだ画面に
+   ひとつだけ他所の色が乗る。currentColor なら現在地の紺／灰にそのまま従う。 */
+nav button svg { display: block; margin: 0 auto; width: 1.2rem; height: 1.2rem; }
+
+main { padding: 1rem; max-width: 900px; margin: 0 auto; }
+.tab { display: none; }
+.tab.on { display: block; }
+.loading { color: var(--muted); }
+
+/* 節のラベルは概要の <summary> と同じ調子にそろえる。
+   タブごとに見出しの大きさが違うと、同じアプリの中で物差しが2本あることになる。 */
+h2 { font-size: .72rem; color: var(--muted); font-weight: 700;
+     margin: 1.9rem 0 .5rem; letter-spacing: .12em; }
+h2:first-child { margin-top: 0; }
+
+.card { background: var(--panel); border: 1px solid var(--line);
+        border-radius: 10px; padding: .8rem 1rem; }
+
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { padding: .4rem .5rem; text-align: left; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 600; font-size: .8rem; }
+td.num, th.num { text-align: right; }
+tbody tr:last-child td { border-bottom: 0; }
+.scroll { overflow-x: auto; }
+/* 幅を詰めると1語ずつ折り返して読めなくなる。畳まずに横へ逃がす。 */
+.scroll table { min-width: 32rem; }
+
+.filters { display: flex; gap: .5rem; margin-bottom: .8rem; }
+.filters input { flex: 1; min-width: 0; }
+input, select {
+  font: inherit; padding: .5rem .6rem; border: 1px solid var(--line);
+  border-radius: 8px; background: var(--panel); color: var(--ink);
+}
+
+/* iOS Safari の日付欄は素のままだと**幅の指定が効かない**。
+   ネイティブの見た目を持ったまま自前の最小幅を抱えるので、
+   min-width:0 を指定しても列より広く描かれ、隣の欄に重なる。
+   見た目を自前にすると width が効くようになる。 */
+input[type="date"] {
+  -webkit-appearance: none; appearance: none;
+  min-width: 0; max-width: 100%;
+}
+/* 見た目を外すと値が中央寄せになるので、他の欄と同じ左に戻す（Safari だけの擬似要素）。 */
+input[type="date"]::-webkit-date-and-time-value { text-align: left; }
+
+.date { color: var(--muted); font-size: .8rem; white-space: nowrap; }
+.kind { font-size: .75rem; padding: .1rem .4rem; border-radius: 4px;
+        border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.minus { color: var(--minus); }
+.plus  { color: var(--plus); }
+.item { word-break: break-word; }
+.memo { color: var(--muted); font-size: .8rem; }
+.chip { font-size: .7rem; color: var(--muted); }
+
+.pager { display: flex; justify-content: space-between; align-items: center;
+         gap: 1rem; margin-top: .8rem; color: var(--muted); font-size: .85rem; }
+.pager button { font: inherit; padding: .4rem .9rem; border: 1px solid var(--line);
+                border-radius: 8px; background: var(--panel); color: var(--ink); cursor: pointer; }
+.pager button[disabled] { opacity: .35; cursor: default; }
+
+footer { padding: 2rem 1rem; text-align: center; color: var(--muted); font-size: .8rem; }
+
+.dl { display: flex; gap: .5rem; flex-wrap: wrap; }
+.dl a {
+  flex: 1; min-width: 6rem; text-align: center; text-decoration: none;
+  padding: .55rem .8rem; border: 1px solid var(--line); border-radius: 8px;
+  color: var(--ink); background: var(--bg);
+}
+.dl a:active { background: var(--line); }
+.bom { display: flex; align-items: center; gap: .4rem;
+       margin-top: .7rem; color: var(--muted); font-size: .82rem; }
+code { font-size: .85em; background: var(--bg); border: 1px solid var(--line);
+       border-radius: 4px; padding: 0 .25em; }
+
+/* --- 入力画面 ------------------------------------------------------------
+   親指だけで完結させたいので、押すものは大きく、間隔を空ける。
+   ソフトキーボードが立つと見える範囲は上半分になるため、
+   金額・候補・カテゴリの順に、使う頻度の高いものから上に積む。 */
+
+.kinds { display: flex; gap: .3rem; margin-bottom: .9rem; }
+/* **押していないものからは枠と白地を取る。** 以前は種別4・日付4・カテゴリ9が
+   すべて同じ 1px の枠付き白地で、枠が16個並んでいた。全部同じ見た目なので
+   「選べるもの」と「選んだもの」の差が出ない。塗ってあるものだけが選択中。 */
+.kinds button {
+  flex: 1; min-width: 0; padding: .55rem 0; font: inherit; font-size: .9rem; cursor: pointer;
+  border: 1px solid transparent; border-radius: 8px;
+  background: none; color: var(--muted);
+}
+.kinds button.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+
+.amount { display: flex; align-items: baseline; gap: .3rem;
+          border-bottom: 2px solid var(--line); padding: .2rem 0 .4rem; }
+.amount span { font-size: 1.6rem; color: var(--muted); }
+.amount input {
+  flex: 1; min-width: 0; border: 0; background: none; padding: 0;
+  font: inherit; font-size: 3rem; font-weight: 600; font-variant-numeric: tabular-nums;
+  color: var(--ink); letter-spacing: -.02em;
+}
+.amount input:focus { outline: none; }
+.amount:focus-within { border-bottom-color: var(--accent); }
+
+.when { display: flex; gap: .4rem; align-items: center; margin: .8rem 0 1.1rem; }
+.when button {
+  padding: .4rem .9rem; font: inherit; font-size: .85rem; cursor: pointer;
+  border: 1px solid transparent; border-radius: 999px;
+  background: none; color: var(--muted);
+}
+.when button.on { color: var(--ink); border-color: var(--accent); }
+.when input[type=date] { margin-left: auto; font-size: .85rem; padding: .35rem .5rem; }
+
+.transfer { display: flex; gap: .5rem; margin-bottom: 1rem; }
+.transfer label { flex: 1; font-size: .8rem; color: var(--muted); }
+.transfer select { width: 100%; margin-top: .2rem; }
+
+.hint { font-size: .78rem; color: var(--muted); margin: 0 0 .4rem; letter-spacing: .04em; }
+
+.cands { margin-bottom: 1.1rem; }
+.cand {
+  display: grid; grid-template-columns: 1fr auto; gap: 0 .6rem; width: 100%;
+  align-items: baseline; text-align: left; cursor: pointer;
+  padding: .6rem .8rem; margin-bottom: .35rem; font: inherit;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--panel); color: var(--ink);
+}
+.cand:active { background: var(--line); }
+.cand-item { font-size: .95rem; }
+.cand-sub { grid-column: 1; font-size: .75rem; color: var(--muted); }
+.cand-amt { grid-column: 2; grid-row: 1 / span 2; align-self: center;
+            font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+
+.cats { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: 1.1rem; }
+/* カテゴリだけは地を残す。数が多くて折り返すので、地がないと
+   ボタンの列ではなく一続きの文に見えて、どこを押せるのか分からなくなる。
+   減らすのは枠だけにとどめる。 */
+.cat {
+  padding: .45rem .8rem; font: inherit; font-size: .85rem; cursor: pointer;
+  border: 0; border-radius: 999px;
+  background: var(--panel); color: var(--ink);
+}
+.cat.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+
+/* 品目・口座・メモ。折りたたんでいたが、開く操作そのものが手間なので常に出す。 */
+/* 任意欄は箱をやめて下線だけにする。必ず埋めるものではないので、
+   空の箱が3つ並んで「まだ入れていない」ように見えるのを避ける。 */
+#more { display: grid; gap: .2rem; margin-bottom: 1.2rem; }
+#more input, #more select {
+  width: 100%; border: 0; border-bottom: 1px solid var(--line);
+  border-radius: 0; background: none; padding: .55rem .1rem;
+}
+#more input:focus, #more select:focus {
+  outline: none; border-bottom-color: var(--accent);
+}
+/* 未選択の口座だけ本文と同じ濃さで出ると、隣の空欄と食い違って見える。
+   選ぶまでは他の任意欄と同じ薄さにしておく。 */
+#more select:has(option[value=""]:checked) { color: var(--muted); }
+
+.budget { display: flex; align-items: center; gap: .45rem;
+          font-size: .85rem; color: var(--muted); margin-bottom: 1rem; }
+
+.err { color: var(--minus); font-size: .85rem; margin: 0 0 .8rem; }
+
+.save {
+  width: 100%; padding: .9rem; font: inherit; font-size: 1rem; cursor: pointer;
+  border: 0; border-radius: 10px; background: var(--accent); color: var(--on-accent);
+}
+.save:active { filter: brightness(.92); }
+
+.toast {
+  position: fixed; left: 1rem; right: 1rem; z-index: 5;
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: .7rem .9rem; border-radius: 10px; font-size: .85rem;
+  background: var(--ink); color: var(--bg);
+  box-shadow: 0 4px 20px rgb(0 0 0 / .25);
+}
+.toast button {
+  font: inherit; font-size: .85rem; cursor: pointer; white-space: nowrap;
+  padding: .35rem .8rem; border-radius: 8px;
+  border: 1px solid currentColor; background: none; color: inherit;
+}
+
+/* --- 要確認の行 ---------------------------------------------------------- */
+
+.review { display: grid; gap: .4rem; }
+.rev {
+  display: grid; gap: .2rem; width: 100%; text-align: left; cursor: pointer;
+  padding: .7rem .8rem; font: inherit;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--panel); color: var(--ink);
+}
+.rev:active { background: var(--line); }
+.rev-head { display: flex; align-items: center; gap: .5rem; }
+.rev-amt { margin-left: auto; font-variant-numeric: tabular-nums; }
+.rev-item { font-size: .95rem; }
+.rev-todo { font-size: .75rem; color: var(--warn); }
+
+/* --- 直すシート ---------------------------------------------------------- */
+
+.sheet { position: fixed; inset: 0; z-index: 10; display: flex; align-items: flex-end; }
+.sheet-bg { position: absolute; inset: 0; background: rgb(0 0 0 / .45); }
+.sheet-body {
+  position: relative; width: 100%; max-height: 92dvh; overflow-y: auto;
+  display: grid; gap: .6rem;
+  padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom));
+  border-radius: 14px 14px 0 0; background: var(--bg);
+}
+@media (min-width: 640px) {
+  .sheet { align-items: center; justify-content: center; }
+  .sheet-body { max-width: 30rem; border-radius: 14px; }
+}
+.sheet-head { display: flex; align-items: center; justify-content: space-between; }
+.sheet-head button {
+  font: inherit; font-size: 1.1rem; line-height: 1; cursor: pointer;
+  padding: .3rem .5rem; border: 0; border-radius: 8px;
+  background: none; color: var(--muted);
+}
+.sheet-body label { display: grid; gap: .2rem; min-width: 0;
+                    font-size: .78rem; color: var(--muted); }
+/* grid/flex の子は既定が min-width:auto なので、入力欄の最小幅に押し広げられて
+   シートが画面からはみ出す。0 にして枠の中に収める。 */
+.sheet-body input, .sheet-body select { min-width: 0; width: 100%; font-size: 1rem; }
+/* `1fr` は `minmax(auto, 1fr)` の略で、中身の最小幅より狭くならない。
+   日付欄のように縮まない子がいると列ごと広がり、シートからはみ出す。 */
+.grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+         gap: .6rem; min-width: 0; }
+/* 保険。それでも縮まない子がいたときに、隣へ重ねるのではなく列の縁で切る。
+   値は左寄せにしてあるので、切れるのは末尾から。重なるよりは読める。 */
+.grid2 > label { overflow: hidden; }
+.sheet-foot { display: flex; gap: .6rem; margin-top: .4rem; min-width: 0; }
+.sheet-foot .save { flex: 2; }
+.danger {
+  flex: 1; font: inherit; cursor: pointer; padding: .9rem;
+  border: 1px solid var(--minus); border-radius: 10px;
+  background: none; color: var(--minus);
+}
+
+/* タブが5つになって ⚙️ が窮屈なので、詰める */
+nav button { padding: .5rem .2rem; }
+
+/* 2列しかない表に .scroll の min-width は要らない（数字が枠の外へ出る）。 */
+table.plain { min-width: 0; }
+
+/* --- 入出金の表 -----------------------------------------------------------
+   列は確認したくなる順（日付・品目・金額・カテゴリ・種別・口座）。
+   狭い画面で6列を並べると横スクロールになり、肝心の品目が潰れるので、
+   右の3列は隠して品目の下に小さく畳む。 */
+
+table.tx { min-width: 0; }
+table.tx .sub { display: none; }
+
+@media (max-width: 639px) {
+  table.tx th:nth-child(n + 4),
+  table.tx td:nth-child(n + 4) { display: none; }
+  table.tx .sub { display: block; font-size: .75rem; color: var(--muted); }
+  table.tx .date { font-size: .75rem; }
+}
+
+/* 符号と金額が別の行に割れると、額の桁を読み違える。必ず一続きにする。 */
+td.num { white-space: nowrap; }
+
+/* 入出金の行はタップで直せる。押せると分かるようにしておく。 */
+table.tx tbody tr { cursor: pointer; }
+table.tx tbody tr:active { background: var(--line); }
+
+/* --- 資産残高の一括入力 ---------------------------------------------------
+   月1回、10口座を一度に書き換える。1画面で全部見えることを優先する。 */
+
+/* 子が1つなら flex:1 で横いっぱい、2つなら並ぶ。両方の使い方がある。 */
+.bal-head { margin-bottom: 1rem; display: flex; gap: .5rem; }
+.bal-head .save, .bal-head .ghost { flex: 1; width: auto; }
+
+/* 紺のべた塗りは「保存」に予約する。残高の記録は月1回しか押さないので、
+   毎日押す保存と同じ強さで置かない。 */
+.ghost {
+  width: 100%; padding: .9rem; font: inherit; font-size: 1rem; cursor: pointer;
+  border: 1px solid var(--accent); border-radius: 10px;
+  background: none; color: var(--accent);
+}
+.ghost:active { background: var(--line); }
+
+.bal-rows { display: grid; gap: .5rem; }
+.bal-row {
+  display: grid; grid-template-columns: 1fr auto; gap: .1rem .6rem; min-width: 0;
+  padding: .55rem .7rem; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--panel);
+}
+.bal-name { font-size: .88rem; display: flex; align-items: baseline; gap: .4rem;
+            flex-wrap: wrap; min-width: 0; }
+.bal-name .kind { flex: none; }
+.bal-amt {
+  /* 列を指定しないと自動配置で1列目に入り、口座名の左へ回り込む。 */
+  grid-column: 2; grid-row: 1 / span 2; align-self: center; width: 6.5rem; min-width: 0;
+  text-align: right; font-variant-numeric: tabular-nums; font-size: 1rem;
+}
+.bal-diff { font-size: .72rem; color: var(--muted); }
+.bal-diff.muted { color: var(--muted); }
+.bal-diff.plus  { color: var(--plus); }
+.bal-diff.minus { color: var(--minus); }
+
+.bal-total {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: .6rem .7rem; margin-top: .2rem;
+  border-top: 1px solid var(--line); font-size: .85rem; color: var(--muted);
+}
+.bal-total strong { font-size: 1.1rem; color: var(--ink);
+                    font-variant-numeric: tabular-nums; }
+
+/* --- 乖離の知らせ ---------------------------------------------------------
+   概要のいちばん上。ズレていること自体は正常なので、
+   閾値を超えたときだけ色を付ける。ふだんは静かな一行でいい。 */
+
+/* ふだんは地の上の数行。閾値を超えたときだけ箱になる。
+   **色より先に形で知らせる。** 箱が出ていること自体が「見るところがある」の合図で、
+   黄はその箱の縁にだけ乗る。平常時に箱を出しておくと、この合図が使えなくなる。 */
+.recon { padding: 0 0 1.1rem; margin-bottom: 1.3rem; border-bottom: 1px solid var(--line); }
+.recon.over {
+  padding: .8rem 1rem; background: var(--panel);
+  border: 1px solid var(--mark); border-radius: 10px;
+}
+.recon-head { font-size: .7rem; color: var(--muted); font-weight: 600; letter-spacing: .12em; }
+.recon-msg { margin: .25rem 0 .5rem; font-size: .95rem; }
+.recon.over .recon-msg strong { color: var(--warn); }
+.recon-nums { display: flex; gap: 1.2rem; font-size: .8rem; color: var(--muted); }
+.recon-nums b { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.recon .memo { margin: .6rem 0 0; }
+.recon details { margin-top: .7rem; }
+.recon summary { font-size: .78rem; color: var(--muted); cursor: pointer; }
+.recon details .scroll { margin-top: .5rem; }
+.recon tr.over td { color: var(--warn); }
+
+/* チェックは横並び。ラベルの既定（縦積み）だと箱と文字が離れて押しにくい。 */
+.sheet-body label.check {
+  display: flex; align-items: center; gap: .5rem;
+  font-size: .85rem; color: var(--ink);
+}
+.sheet-body label.check input { width: auto; }
+
+/* --- 未送信 ---------------------------------------------------------------
+   圏外で溜まった分。透明なキューにせず、入力画面のいちばん上に必ず出す。
+   「入れたつもりで消えていた」が家計簿で一番痛い壊れ方なので。 */
+
+.pending {
+  margin-bottom: 1rem; padding: .7rem .8rem;
+  border: 1px solid var(--mark); border-radius: 10px; background: var(--panel);
+}
+.pending-head { display: flex; align-items: center; justify-content: space-between;
+                gap: 1rem; margin-bottom: .4rem; font-size: .9rem; }
+.pending-head button {
+  font: inherit; font-size: .8rem; cursor: pointer; white-space: nowrap;
+  padding: .3rem .8rem; border-radius: 8px;
+  border: 1px solid var(--warn); background: none; color: var(--warn);
+}
+.pending-row {
+  display: flex; align-items: baseline; gap: .6rem;
+  padding: .3rem 0; font-size: .82rem; color: var(--muted);
+  border-top: 1px solid var(--line);
+}
+.pending-row span { flex: 1; min-width: 0; }
+.pending-row b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.pending-row button {
+  font: inherit; font-size: .8rem; line-height: 1; cursor: pointer;
+  padding: .2rem .4rem; border: 0; background: none; color: var(--muted);
+}
+
+/* --- バックアップと取り込み ---------------------------------------------- */
+
+.backup-state { margin: 0 0 .8rem; font-size: .85rem; color: var(--muted); }
+.backup-state .minus { color: var(--minus); }
+.backup-state .muted { color: var(--muted); }
+.dl button, .dl .pick {
+  flex: 1; min-width: 6rem; text-align: center; cursor: pointer;
+  padding: .55rem .8rem; font: inherit; font-size: 1rem;
+  border: 1px solid var(--line); border-radius: 8px;
+  color: var(--ink); background: var(--bg);
+}
+.dl button:disabled { opacity: .5; cursor: default; }
+
+/* 口座の並び替え。ボタンの入れ子は作れないので、行を横に割って隣に置く。 */
+.acct-row { display: flex; gap: .3rem; align-items: stretch; }
+.acct-row .rev { flex: 1; min-width: 0; }
+.acct-move { display: flex; flex-direction: column; gap: .2rem; flex: none; }
+.acct-move button {
+  font: inherit; font-size: .8rem; line-height: 1; cursor: pointer;
+  flex: 1; width: 2.2rem; padding: 0;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--panel); color: var(--muted);
+}
+.acct-move button:active { background: var(--line); }
+.acct-move button:disabled { opacity: .3; cursor: default; }
+#acctGroup {
+  font: inherit; font-size: .85rem; cursor: pointer;
+  padding: .5rem .8rem; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+}
+
+/* 設定のスイッチ。箱と文字が離れると押しにくいので横並びにする。 */
+.toggle { display: flex; align-items: center; gap: .5rem; font-size: .95rem; cursor: pointer; }
+.toggle input { width: 1.1rem; height: 1.1rem; }
+.card .toggle + .memo { margin: .5rem 0 0; }
+
+/* --- 概要の折りたたみ -----------------------------------------------------
+   開閉は覚える。閉じたものが毎回開いて出るのは、それ自体が邪魔になる。 */
+
+/* カードをやめたので、節の切れ目は罫で出す。畳んだものが並ぶと帳簿の罫線に見える。 */
+.sec { margin-top: 0; border-top: 1px solid var(--line); }
+/* 最後の節にも罫を引いて列を閉じる。開けたままだと表が途中で切れて見える。 */
+.sec:last-child { border-bottom: 1px solid var(--line); }
+.sec[open] { padding-bottom: 1.3rem; }
+.sec > summary {
+  display: flex; align-items: baseline; gap: .1rem;
+  font-size: .7rem; color: var(--muted); font-weight: 600;
+  letter-spacing: .12em; cursor: pointer; padding: .95rem 0;
+  list-style: none;
+}
+/* 件数は見出しの続きではなく右端。畳んだまま「何件あるか」だけ読めるようにする。 */
+.sec > summary .count { margin-left: auto; letter-spacing: .04em; }
+.sec > summary::-webkit-details-marker { display: none; }
+.sec > summary::before {
+  content: '▸'; display: inline-block; width: 1rem;
+  transition: transform .12s; color: var(--muted);
+}
+.sec[open] > summary::before { transform: rotate(90deg); }
+.sec > :not(summary):first-of-type { margin-top: .5rem; }
+
+/* --- あと何か月 / 今月のペース --------------------------------------------
+   一行で読み切れることに意味があるので、畳まずに常に出す。 */
+
+/* **ラベルと数字の差は色ではなく大きさで付ける。** どちらも var(--ink) 系のままで、
+   ラベルを小さく字間を開け、数字を大きく字間を詰める。家計簿を開いて最初に読むのは
+   数字なので、本文と同じ調子で置かない。 */
+.stat { margin-bottom: 1.5rem; }
+.stat-label { margin: 0; font-size: .7rem; color: var(--muted);
+              font-weight: 600; letter-spacing: .12em; }
+.stat-value {
+  margin: .1rem 0 .25rem; font-size: 2.6rem; line-height: 1.1; font-weight: 600;
+  letter-spacing: -.02em; color: var(--ink); font-variant-numeric: tabular-nums;
+}
+.stat-value span { font-size: .85rem; font-weight: 400; color: var(--muted); margin-left: .25rem; }
+.stat .memo { margin: 0; line-height: 1.5; }
+
+/* --- 総資産の推移 ---------------------------------------------------------
+   1本の線ではなくクラス別の積み上げ。理由は DESIGN.md。 */
+
+.nw-range { display: flex; gap: .3rem; margin-bottom: .6rem; }
+.nw-range button {
+  font: inherit; font-size: .8rem; cursor: pointer;
+  padding: .25rem .7rem; border-radius: 999px;
+  border: 1px solid transparent; background: none; color: var(--muted);
+}
+.nw-range button.on { border-color: var(--accent); color: var(--ink); }
+.nw-change { margin: 0 0 .3rem; font-size: .8rem; color: var(--muted); }
+.nw-change b { font-variant-numeric: tabular-nums; }
+
+.nw-svg { width: 100%; height: auto; display: block; touch-action: pan-y; }
+.nw-grid { stroke: var(--line); stroke-width: 1; }
+.nw-tick { fill: var(--muted); font-size: 11px; }
+.nw-band.s1 { fill: var(--s1); }
+.nw-band.s2 { fill: var(--s2); }
+.nw-band.s3 { fill: var(--s3); }
+/* 帯の境目は線ではなく地の色の隙間で示す。線を足すと積み上げが層に見えなくなる。
+   概要からカードを外したので、隙間の色は白ではなく地そのもの。
+   ここを var(--panel) のままにすると、隙間ではなく白い線が引かれる。 */
+.nw-edge { fill: none; stroke: var(--bg); stroke-width: 2; stroke-linejoin: round; }
+.nw-guide { stroke: var(--ink); stroke-width: 1; opacity: .45; }
+
+.nw-read { margin-top: .5rem; }
+.nw-date { margin: 0 0 .3rem; font-size: .8rem; color: var(--muted); }
+.nw-date b { color: var(--ink); font-size: 1rem; font-variant-numeric: tabular-nums; }
+.nw-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: .15rem; }
+.nw-legend li {
+  display: flex; align-items: center; gap: .4rem;
+  font-size: .8rem; color: var(--muted);
+}
+.nw-legend i { width: .7rem; height: .7rem; border-radius: 2px; flex: none; }
+.nw-legend i.s1 { background: var(--s1); }
+.nw-legend i.s2 { background: var(--s2); }
+.nw-legend i.s3 { background: var(--s3); }
+/* 金額は必ず文字で出す。灰の帯は地との差が小さく、色だけでは読めないため。 */
+/* 見出しが「1回あた／り」と折れる。数字の列は畳まずに品目側を詰める。 */
+.sec th { white-space: nowrap; }
+
+.nw-legend b {
+  margin-left: auto; color: var(--ink); font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- 広い画面の概要 --------------------------------------------------------
+   縦一列のままだと、900px の中央に細い板が立っているように見える。
+   「あと何か月」と「今月ここまで」は短くて対になっているので、ここだけ横に置く。
+   罫で区切ってあるので、カードにしなくても列として揃う。 */
+
+@media (min-width: 700px) {
+  #summary.tab.on {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0 2.5rem; align-items: start;
+  }
+  #summary > .recon, #summary > .sec { grid-column: 1 / -1; }
+  #summary > .stat { margin-bottom: 1.8rem; }
+  /* 対の2つは肩を揃える。片方だけ補足が2行になっても数字の高さは動かない。 */
+  #summary > .stat .stat-value { min-height: 2.9rem; }
+}

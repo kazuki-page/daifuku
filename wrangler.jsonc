@@ -1,0 +1,64 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "daifuku",
+	"main": "./src/index.ts",
+	"compatibility_date": "2026-08-19",
+
+	/**
+	 * バージョンごとのプレビューURLは公開される。中身が家計の金額なので必ず切る。
+	 */
+	"preview_urls": false,
+
+	/**
+	 * workers.dev のURLも切る。
+	 * Cloudflare Access が守っているのは daifuku.kazuki.page というホスト名なので、
+	 * 別のホスト名で同じ Worker に届く経路があると、そこは Access を通らない。
+	 */
+	"workers_dev": false,
+
+	"routes": [
+		{
+			"pattern": "daifuku.kazuki.page",
+			"custom_domain": true
+		}
+	],
+
+	/**
+	 * CSV の書き出しを定期実行する。手動ボタンだけだと押し忘れた期間が
+	 * そのまま失う可能性のある期間になる。
+	 * ※ 書き出しの実装（段階8）が入るまでは効かない。
+	 */
+	"triggers": {
+		"crons": ["0 * * * *"]
+	},
+
+	"observability": {
+		"enabled": true
+	},
+
+	/**
+	 * D1 (SQLite)
+	 * `npx wrangler d1 create daifuku-db --location apac` で作成。
+	 * ロケーションは APAC。書き込みは常にプライマリまで往復するので、
+	 * ここを間違えると日本からの保存が体感で遅くなる（後から変えにくい）。
+	 */
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "daifuku-db",
+			"database_id": "a2d5173d-1115-4a23-bad7-3f0d7d0581d1",
+			"migrations_dir": "migrations"
+		}
+	],
+
+	/**
+	 * public/ は Workers 側で配る。
+	 * run_worker_first がないと静的ファイルが Worker より先に返るため、
+	 * index.html が合鍵を通らずに読めてしまう。認証を先に通すために必須。
+	 */
+	"assets": {
+		"directory": "./public",
+		"binding": "ASSETS",
+		"run_worker_first": true
+	}
+}
