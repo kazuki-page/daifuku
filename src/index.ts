@@ -109,12 +109,9 @@ async function handle(request: Request, env: Env): Promise<Response> {
     const body = (await request.json().catch(() => ({}))) as { key?: unknown };
     const key = typeof body.key === 'string' ? body.key.trim() : '';
     if (!auth || (key && (await safeEqual(key, auth)))) {
-      const secure = url.protocol === 'https:' ? ' Secure;' : '';
       return new Response(null, {
         status: 204,
-        headers: {
-          'set-cookie': `${COOKIE}=${auth}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Strict;${secure}`,
-        },
+        headers: { 'set-cookie': keyCookie(url, auth) },
       });
     }
     return json({ error: '鍵が違います' }, 401);
@@ -130,13 +127,12 @@ async function handle(request: Request, env: Env): Promise<Response> {
 
   // 鍵が URL で来たら Cookie に移し、アドレスバーと履歴から消す。
   if (auth && url.searchParams.get('key') && !isApi) {
-    const secure = url.protocol === 'https:' ? ' Secure;' : '';
     url.searchParams.delete('key');
     return new Response(null, {
       status: 302,
       headers: {
         location: url.pathname + (url.search || ''),
-        'set-cookie': `${COOKIE}=${auth}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Strict;${secure}`,
+        'set-cookie': keyCookie(url, auth),
       },
     });
   }
@@ -409,6 +405,28 @@ async function authorized(request: Request, url: URL, auth: string): Promise<boo
   if (!auth) return true;
   const key = url.searchParams.get('key') ?? cookie(request, COOKIE);
   return Boolean(key) && (await safeEqual(key as string, auth));
+}
+
+/**
+ * 合鍵を入れる Cookie。**Strict ではなく Lax。**
+ *
+ * Strict だと、Access のセッションが切れて `<team>.cloudflareaccess.com` に
+ * 飛ばされ、戻ってきた最初の1回でこの Cookie が送られない（サイトをまたぐ
+ * 遷移だから）。Worker からは合鍵が無いように見えるので 401 の合鍵ページが出る。
+ * Cookie 自体は1年もつのに、**Access に入り直すたびに合鍵まで必ず聞かれていた。**
+ * iPhone は Access のセッションが短命なので（ホーム画面のアプリは Safari と
+ * Cookie の入れ物が別、かつ ITP が cloudflareaccess.com の Cookie を7日で消す）、
+ * この二重取りがそこで集中して出る。
+ *
+ * Lax にしても守りは落ちない。書き換えは全部 POST/PATCH/DELETE で、Lax は
+ * サイトをまたいだそれらに Cookie を付けない。GET は読むだけで、CORS を
+ * 一切返していないので他所のスクリプトからは中身が読めない。
+ * Strict が余分に止めていたのは「他所からの GET 遷移」だけで、それは
+ * 止めたい相手ではなく自分だった。
+ */
+function keyCookie(url: URL, auth: string): string {
+  const secure = url.protocol === 'https:' ? ' Secure;' : '';
+  return `${COOKIE}=${auth}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax;${secure}`;
 }
 
 function cookie(request: Request, name: string): string | null {
