@@ -5,14 +5,16 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "wrangler dev --port 8788",
+    "dev": "wrangler dev --var DEVELOPMENT:1 --port 8788",
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
     "dev:remote": "wrangler dev --remote --port 8788",
     "dev:demo": "wrangler dev --config wrangler.demo.jsonc --port 8789",
     "deploy:demo": "wrangler deploy --config wrangler.demo.jsonc",
+    "test": "node --test tests/*.test.mjs",
+    "setup:hooks": "git config core.hooksPath .githooks",
     "og": "node tools/og.mjs",
-    "publish:public": "node tools/publish.mjs"
+    "check:privacy": "node tools/privacy-check.mjs"
   },
   "devDependencies": {
     "sharp": "^0.35.3",

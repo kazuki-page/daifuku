@@ -16,15 +16,18 @@ export type Row = Record<string, unknown>;
  * RFC 4180。区切り・引用符・改行を含む値だけ引用符で囲む。
  * 改行は CRLF。Excel と Numbers の両方でそのまま開くため。
  */
-function field(v: unknown): string {
+function field(v: unknown, spreadsheetSafe: boolean): string {
   if (v === null || v === undefined) return '';
-  const s = String(v);
+  let s = String(v);
+  // Excel向けの出力だけ、文字列を数式として評価させない。通常のバックアップは
+  // 読み戻したときに原文へ戻ることを優先し、一切書き換えない。
+  if (spreadsheetSafe && typeof v === 'string' && /^[\t\r\n ]*[=+\-@]/.test(s)) s = `'${s}`;
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-export function toCsv(columns: string[], rows: Row[]): string {
+export function toCsv(columns: string[], rows: Row[], spreadsheetSafe = false): string {
   const lines = [columns.join(',')];
-  for (const r of rows) lines.push(columns.map((c) => field(r[c])).join(','));
+  for (const r of rows) lines.push(columns.map((c) => field(r[c], spreadsheetSafe)).join(','));
   return lines.join('\r\n') + '\r\n';
 }
 

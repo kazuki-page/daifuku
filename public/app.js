@@ -633,7 +633,7 @@ async function showSettings() {
         <a href="/api/export/balances.csv" download>資産残高</a>
         <a href="/api/export/accounts.csv" download>口座</a>
       </div>
-      <label class="bom"><input type="checkbox" id="bom"> Excel で開く（BOM を付ける）</label>
+      <label class="bom"><input type="checkbox" id="bom"> Excel で開く（BOM・数式対策）</label>
     </div>
 
     <h2>自動バックアップ</h2>

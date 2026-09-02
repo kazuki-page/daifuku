@@ -23,6 +23,8 @@ export interface Env {
   AUTH_TOKEN?: string;
   /** `wrangler secret put GITHUB_TOKEN` で入れる。daifuku-content への Contents 書き込み権限。 */
   GITHUB_TOKEN?: string;
+  /** `npm run dev` だけが渡す。公開環境の認証を暗黙のホスト名判定で緩めないため。 */
+  DEVELOPMENT?: string;
   /**
    * デモ版でだけ "1"。wrangler.demo.jsonc の vars で入る。
    *
@@ -35,15 +37,19 @@ export interface Env {
 
 const COOKIE = 'daifuku_key';
 const JSON_TYPE = 'application/json; charset=utf-8';
+const MAX_JSON_BYTES = 256 * 1024;
+const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    const nonce = crypto.randomUUID();
     try {
-      return await handle(request, env);
+      return secured(await handle(request, env, nonce), nonce);
     } catch (err) {
       const status = err instanceof HttpError ? err.status : 500;
       if (status === 500) console.error(err);
-      return json({ error: (err as Error).message }, status);
+      const message = status === 500 ? '内部エラーが発生しました' : (err as Error).message;
+      return secured(json({ error: message }, status), nonce);
     }
   },
 
@@ -91,13 +97,22 @@ async function runExport(env: Env): Promise<ExportResult> {
   }
 }
 
-async function handle(request: Request, env: Env): Promise<Response> {
+async function handle(request: Request, env: Env, nonce: string): Promise<Response> {
   const url = new URL(request.url);
   const auth = (env.AUTH_TOKEN ?? '').trim();
   const isApi = url.pathname.startsWith('/api/');
 
   // デモは合鍵も /unlock も通らない。誰でも入れるのが目的なので、いちばん外で分ける。
   if (env.DEMO === '1') return demo(request, env, isApi);
+
+  // 本番で鍵を入れ忘れたときに、Cloudflare Access だけへ黙って縮退させない。
+  // 認証なしを許すのはローカル開発だけ。新しい公開経路を足しても fail-closed になる。
+  if (!auth && env.DEVELOPMENT !== '1')
+    throw new HttpError(503, 'AUTH_TOKEN が設定されていません');
+
+  // SameSite は origin ではなく site 単位なので、別の kazuki.page サブドメインからも
+  // Cookie が送られ得る。状態を変える要求は、送信元がこのアプリ自身かを必ず確かめる。
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method)) requireSameOrigin(request, url);
 
   // 鍵の受け取り口だけは認証の前に置く。ここが認証の内側にあると入れなくなる。
   // URL ではなく本文で受けるので、鍵がアドレスバーにも履歴にも残らない。
@@ -106,7 +121,7 @@ async function handle(request: Request, env: Env): Promise<Response> {
   // 立っているので、ここへ到達すること自体が認証済みを意味する。
   // Access を外すなら、ここに回数制限が要る。
   if (request.method === 'POST' && url.pathname === '/unlock') {
-    const body = (await request.json().catch(() => ({}))) as { key?: unknown };
+    const body = (await readJson(request).catch(() => ({}))) as { key?: unknown };
     const key = typeof body.key === 'string' ? body.key.trim() : '';
     if (!auth || (key && (await safeEqual(key, auth)))) {
       return new Response(null, {
@@ -119,10 +134,10 @@ async function handle(request: Request, env: Env): Promise<Response> {
 
   if (!(await authorized(request, url, auth))) {
     if (isApi) throw new HttpError(401, '合鍵が必要です');
-    return new Response(LOCKED_PAGE, {
-      status: 401,
-      headers: { 'content-type': 'text/html; charset=utf-8' },
-    });
+    return new Response(
+      LOCKED_PAGE.replace('__CSP_NONCE__', nonce),
+      { status: 401, headers: { 'content-type': 'text/html; charset=utf-8' } },
+    );
   }
 
   // 鍵が URL で来たら Cookie に移し、アドレスバーと履歴から消す。
@@ -148,16 +163,16 @@ async function api(request: Request, env: Env, url: URL): Promise<Response> {
   const p = url.pathname;
 
   if (request.method === 'POST' && p === '/api/transactions')
-    return json(await create(await request.json(), store), 201);
+    return json(await create(await readJson(request), store), 201);
 
   // 口座を足す。新しく銀行口座を開いたとき。
   if (request.method === 'POST' && p === '/api/accounts')
-    return json({ id: await store.insertAccount(parseAccount(await request.json())) }, 201);
+    return json({ id: await store.insertAccount(parseAccount(await readJson(request))) }, 201);
 
   // 並び替え。**個別の口座より先に置く。** 下の分岐は '/api/accounts/' で始まるものを
   // すべて id とみなすので、後ろに置くと 'order' という id を書き換えにいく。
   if (request.method === 'PATCH' && p === '/api/accounts/order') {
-    const body = (await request.json().catch(() => ({}))) as { ids?: unknown };
+    const body = (await readJson(request).catch(() => ({}))) as { ids?: unknown };
     const ids = Array.isArray(body.ids) ? body.ids.filter((x): x is string => typeof x === 'string') : [];
     if (!ids.length) throw new HttpError(400, '並びが空');
     if (new Set(ids).size !== ids.length) throw new HttpError(400, '同じ口座が二度ある');
@@ -167,13 +182,13 @@ async function api(request: Request, env: Env, url: URL): Promise<Response> {
   // 口座の設定。名前を変えても過去の記録は id で結ばれたまま残る。
   if (request.method === 'PATCH' && p.startsWith('/api/accounts/')) {
     const id = decodeURIComponent(p.slice('/api/accounts/'.length));
-    await store.updateAccount(id, parseAccount(await request.json()));
+    await store.updateAccount(id, parseAccount(await readJson(request)));
     return json({ updated: 1 });
   }
 
   // 設定。いまは乖離検知の入切だけ。端末ではなくサーバに置く（見る画面が変わっても同じ状態でいたい）。
   if (request.method === 'PATCH' && p === '/api/settings') {
-    const body = (await request.json().catch(() => ({}))) as { reconcile?: unknown };
+    const body = (await readJson(request).catch(() => ({}))) as { reconcile?: unknown };
     if (typeof body.reconcile !== 'boolean') throw new HttpError(400, '値がおかしい');
     if (body.reconcile) await store.clearMeta(RECONCILE_OFF);
     else await store.setMeta(RECONCILE_OFF, true);
@@ -186,7 +201,7 @@ async function api(request: Request, env: Env, url: URL): Promise<Response> {
 
   // CSV の取り込み。本文がそのまま CSV。
   if (request.method === 'POST' && p === '/api/import')
-    return json(await importCsv(env.DB, await request.text()), 201);
+    return json(await importCsv(env.DB, await readCsv(request)), 201);
 
   // 取り込みをまとめて取り消す。同じCSVを2回入れる事故のため。
   if (request.method === 'DELETE' && p.startsWith('/api/import/')) {
@@ -196,12 +211,12 @@ async function api(request: Request, env: Env, url: URL): Promise<Response> {
 
   // 資産残高の一括保存。月1回、全口座をまとめて記録する。
   if (request.method === 'POST' && p === '/api/balances')
-    return json(await saveBalances(await request.json(), store), 201);
+    return json(await saveBalances(await readJson(request), store), 201);
 
   // 書き換え。移行した資金移動の移動元・移動先を後から埋めるのが主な用途。
   if (request.method === 'PATCH' && p.startsWith('/api/transactions/')) {
     const id = decodeURIComponent(p.slice('/api/transactions/'.length));
-    await store.update(id, parse(await request.json()));
+    await store.update(id, parse(await readJson(request)));
     return json({ updated: 1 });
   }
 
@@ -271,13 +286,13 @@ async function api(request: Request, env: Env, url: URL): Promise<Response> {
 
     if (name === 'transactions.csv')
       return csvResponse(`daifuku-transactions-${stamp}.csv`,
-        toCsv(TRANSACTION_COLUMNS, await store.exportTransactions()), bom);
+        toCsv(TRANSACTION_COLUMNS, await store.exportTransactions(), bom), bom);
     if (name === 'balances.csv')
       return csvResponse(`daifuku-balances-${stamp}.csv`,
-        toCsv(BALANCE_COLUMNS, await store.exportBalances()), bom);
+        toCsv(BALANCE_COLUMNS, await store.exportBalances(), bom), bom);
     if (name === 'accounts.csv')
       return csvResponse(`daifuku-accounts-${stamp}.csv`,
-        toCsv(ACCOUNT_COLUMNS, await store.exportAccounts()), bom);
+        toCsv(ACCOUNT_COLUMNS, await store.exportAccounts(), bom), bom);
 
     throw new HttpError(404, 'その書き出しは無い');
   }
@@ -429,6 +444,67 @@ function keyCookie(url: URL, auth: string): string {
   return `${COOKIE}=${auth}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax;${secure}`;
 }
 
+function requireSameOrigin(request: Request, url: URL): void {
+  if (request.headers.get('origin') !== url.origin)
+    throw new HttpError(403, '不正な送信元です');
+}
+
+function declaredSize(request: Request): number | null {
+  const raw = request.headers.get('content-length');
+  if (raw === null) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+async function limitedText(request: Request, limit: number): Promise<string> {
+  const size = declaredSize(request);
+  if (size !== null && size > limit) throw new HttpError(413, '本文が大きすぎます');
+  const body = await request.text();
+  if (new TextEncoder().encode(body).byteLength > limit)
+    throw new HttpError(413, '本文が大きすぎます');
+  return body;
+}
+
+async function readJson(request: Request): Promise<unknown> {
+  const type = (request.headers.get('content-type') ?? '').split(';', 1)[0]!.trim().toLowerCase();
+  if (type !== 'application/json') throw new HttpError(415, 'JSON が必要です');
+  const body = await limitedText(request, MAX_JSON_BYTES);
+  try {
+    return JSON.parse(body);
+  } catch {
+    throw new HttpError(400, 'JSON が読めません');
+  }
+}
+
+async function readCsv(request: Request): Promise<string> {
+  const type = (request.headers.get('content-type') ?? '').split(';', 1)[0]!.trim().toLowerCase();
+  if (type !== 'text/csv' && type !== 'application/csv')
+    throw new HttpError(415, 'CSV が必要です');
+  return limitedText(request, MAX_IMPORT_BYTES);
+}
+
+function secured(response: Response, nonce: string): Response {
+  const out = new Response(response.body, response);
+  out.headers.set('content-security-policy', [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}'`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self'",
+    "connect-src 'self'",
+    "worker-src 'self'",
+    "manifest-src 'self'",
+    "base-uri 'none'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+  ].join('; '));
+  out.headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+  out.headers.set('referrer-policy', 'no-referrer');
+  out.headers.set('x-content-type-options', 'nosniff');
+  out.headers.set('x-frame-options', 'DENY');
+  return out;
+}
+
 function cookie(request: Request, name: string): string | null {
   for (const part of (request.headers.get('cookie') ?? '').split(';')) {
     const [k, ...v] = part.trim().split('=');
@@ -465,7 +541,10 @@ const clamp = (n: number, lo: number, hi: number) =>
   Number.isFinite(n) ? Math.min(hi, Math.max(lo, Math.trunc(n))) : lo;
 
 function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { 'content-type': JSON_TYPE } });
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': JSON_TYPE, 'cache-control': 'no-store' },
+  });
 }
 
 const LOCKED_PAGE = `<!doctype html><meta charset="utf-8">
@@ -518,7 +597,7 @@ const LOCKED_PAGE = `<!doctype html><meta charset="utf-8">
   <button id="b" type="submit">開く</button>
   <p class="err" id="e"></p>
 </form>
-<script>
+<script nonce="__CSP_NONCE__">
  var f = document.getElementById('f'), k = document.getElementById('k'),
      b = document.getElementById('b'), e = document.getElementById('e');
  f.addEventListener('submit', function (ev) {

@@ -11,37 +11,39 @@
 
 データは別リポジトリ（`daifuku-content`）。コードとデータのリポジトリを分ける理由も DESIGN.md にある。
 
-開発は private のリポジトリで行っていて、**公開版には実データの測定値（`notes/`）を含めない**（下の「公開」）。
+コードの正本はこの公開リポジトリ。実データ、口座名、実額、取引明細、測定メモは
+ここへ置かず、D1・`daifuku-content`・公開リポジトリ外のメモに分ける。
 
 ## 開発
 
 ```sh
 npm install
+npm run setup:hooks # このチェックアウトのコミット前に漏えい検査を必ず走らせる
 npm run dev        # ローカル D1 で起動（http://localhost:8788）
 npm run typecheck
 npm run deploy
 ```
 
-## 公開
+## 公開前検査
 
-`kazuki-page/daifuku`（公開）へは**ファイルを写すだけ**で、`git push` で履歴は送らない。
-private の過去コミットには実額がそのまま残っているので、履歴を流した時点で
-いまファイルを綺麗にしてあることに意味が無くなる。
+過去に実データを含んでいた `daifuku-private` の履歴は、このリポジトリへmerge、
+cherry-pick、mirror pushしない。コード変更はこのリポジトリで直接行う。
+
+コミット前に、追跡済みファイルとgitignoreされていない未追跡ファイルを検査する。
+`npm run setup:hooks` を一度実行すれば、以後はコミット時にも自動で走る。
 
 ```sh
-npm run publish:public              # ../daifuku-public へ写す
-git -C ../daifuku-public status     # 差分を目で見る
-git -C ../daifuku-public commit -a -m '…'
-git -C ../daifuku-public push
+npm run check:privacy
+git diff --cached
 ```
 
-許可リストに書いたファイルだけが行く。書いていないものは行かない（`notes/` が落ちるのもこれ）。
-写す前に中身を検査し、実額や口座名が紛れていれば**1ファイルも書かずに止まる**。
-意図した例外は `tools/publish-allow.txt` に完全一致で置く。
+口座名などの禁止語一覧は、それ自体が情報になるため公開リポジトリには置かない。
+既定では隣の旧チェックアウトにある `../daifuku/notes/publish-rules.mjs` を読む。
+別の場所へ移した場合は `DAIFUKU_PRIVATE_RULES` にパスを指定する。ルールが読めなければ
+検査はfail-closedで停止する。意図した例外だけを `tools/publish-allow.txt` に完全一致で置く。
 
-**測って数字が出たら `notes/実測.md` に書く。** DESIGN.md は公開されるので、
-そこに実額を書くと出ていく（ゲートが止めるが、止まってから直すより先に分けるほうが楽）。
-決めた理由は DESIGN.md「公開の仕方」。
+測定値や取引を調べる作業は、このリポジトリの外で行う。結論だけをコードや
+DESIGN.mdへ反映し、口座名・実額・取引明細は持ち込まない。
 
 ## デモ版
 
@@ -65,6 +67,17 @@ DESIGN.md「デモ版」にある。
 
 `AUTH_TOKEN`（合鍵）は `wrangler secret put AUTH_TOKEN` で入れる。
 ローカルでは `.dev.vars` に書く。未設定なら認証なしで動く（開発用）。
+
+本番ホストでは `AUTH_TOKEN` が未設定だと 503 で停止する。デプロイ後は次で
+`AUTH_TOKEN` と `GITHUB_TOKEN` の2つが表示されることを確認する（値そのものは出ない）。
+
+```sh
+npx wrangler secret list
+```
+
+Cloudflare Access のアプリケーション対象が `daifuku.kazuki.page` のみになっていること、
+`daifuku-content` が private であることも管理画面で確認する。`GITHUB_TOKEN` は
+この1リポジトリの Contents: Read and write だけを持つ fine-grained token にする。
 
 ## 既存スプレッドシートからの移行
 

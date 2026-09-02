@@ -16,6 +16,8 @@ export interface ImportResult {
   skipped: number;
 }
 
+const MAX_IMPORT_ROWS = 20_000;
+
 /** RFC 4180。引用符の中の区切り・改行を正しく通す。 */
 export function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
@@ -61,6 +63,8 @@ const iso = (v: string | undefined) => {
 export async function importCsv(db: D1Database, text: string): Promise<ImportResult> {
   const rows = parseCsv(text);
   if (rows.length < 2) throw new HttpError(400, '中身が無い');
+  if (rows.length - 1 > MAX_IMPORT_ROWS)
+    throw new HttpError(413, `一度に取り込めるのは ${MAX_IMPORT_ROWS} 行までです`);
 
   const header = rows[0]!.map((h) => h.trim());
   const kind = detectKind(header);
