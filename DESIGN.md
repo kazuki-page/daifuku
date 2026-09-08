@@ -1091,7 +1091,7 @@ GitHub への自動バックアップだけ 503 で**断る**。鍵を置いて�
 **禁止語の一覧は「何を消したか」の一覧でもある。** 機関名と銘柄名がそこに並んだまま
 公開すると、本文から消したものが目録として出ていく。
 
-だからルールは旧privateチェックアウトの `notes/publish-rules.mjs` に残し、
+だからルールは隣の `daifuku-private` チェックアウトの `notes/publish-rules.mjs` に残し、
 `privacy-check.mjs` から読み取りだけ行う。場所を変えた場合は環境変数
 `DAIFUKU_PRIVATE_RULES` で指定する。読めなければ止まり、検査なしでは通さない。
 

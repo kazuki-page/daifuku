@@ -16,12 +16,35 @@
 
 ## 開発
 
+Node.js 24 LTS（npm同梱）とGitを使う。別のOSから持ってきた `node_modules` は
+使い回さず、`npm ci` で `package-lock.json` に沿って入れ直す。
+
 ```sh
-npm install
+npm ci
 npm run setup:hooks # このチェックアウトのコミット前に漏えい検査を必ず走らせる
+npx wrangler d1 migrations apply daifuku-db --local # 初回とマイグレーション追加時
 npm run dev        # ローカル D1 で起動（http://localhost:8788）
+```
+
+変更後の確認：
+
+```sh
 npm run typecheck
-npm run deploy
+npm test
+npm run check:privacy
+npx wrangler deploy --dry-run # ビルド確認。本番へは配布しない
+```
+
+ローカル開発には本番の `.dev.vars` や家計データは不要。
+`npm run dev` は開発用の認証省略を明示して起動する。
+WindowsのPowerShellで `npm.ps1` の実行が制限される場合は `npm.cmd`、`npx.cmd` を使う。
+Node.jsをインストールしてもコマンドが見つからない場合は、ターミナルを開き直す。
+
+標準の場所にNode.jsとGitがあるのに、作業用シェルで見つからない、または
+Gitフックで `bash` が見つからない場合は、そのシェルのPATHを補う。
+
+```powershell
+$env:Path = "C:\Program Files\nodejs;C:\Program Files\Git\cmd;$env:Path"
 ```
 
 ## 公開前検査
@@ -38,9 +61,14 @@ git diff --cached
 ```
 
 口座名などの禁止語一覧は、それ自体が情報になるため公開リポジトリには置かない。
-既定では隣の旧チェックアウトにある `../daifuku/notes/publish-rules.mjs` を読む。
+既定では隣の旧チェックアウトにある `../daifuku-private/notes/publish-rules.mjs` を読む。
 別の場所へ移した場合は `DAIFUKU_PRIVATE_RULES` にパスを指定する。ルールが読めなければ
 検査はfail-closedで停止する。意図した例外だけを `tools/publish-allow.txt` に完全一致で置く。
+
+ローカルの作業フォルダ名は `daifuku` に揃え、旧privateチェックアウトは
+`daifuku-private` として保管する。旧側の `.dev.vars`、`.wrangler` 内のローカルDB、
+`tools/import.sql` はGit管理外なので、GitHubからのcloneでは復元できない。
+旧側を削除する前に、これらの保全と非公開検査ルールの移設を済ませる。
 
 測定値や取引を調べる作業は、このリポジトリの外で行う。結論だけをコードや
 DESIGN.mdへ反映し、口座名・実額・取引明細は持ち込まない。

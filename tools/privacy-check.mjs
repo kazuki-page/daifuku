@@ -8,7 +8,7 @@ import { dirname, extname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const DEFAULT_RULES = resolve(ROOT, '../daifuku/notes/publish-rules.mjs');
+const DEFAULT_RULES = resolve(ROOT, '../daifuku-private/notes/publish-rules.mjs');
 const RULES_PATH = resolve(process.env.DAIFUKU_PRIVATE_RULES ?? DEFAULT_RULES);
 const ALLOW_PATH = resolve(ROOT, 'tools/publish-allow.txt');
 
