@@ -73,6 +73,54 @@ git diff --cached
 測定値や取引を調べる作業は、このリポジトリの外で行う。結論だけをコードや
 DESIGN.mdへ反映し、口座名・実額・取引明細は持ち込まない。
 
+## 自動デプロイ
+
+`.github/workflows/deploy.yml` は `main` へのpushで、本番・デモを承認待ちなしで配布する。
+型検査、テスト、本番・デモのdry-run、非公開ルールによる漏えい検査がすべて成功した場合だけ、
+`npm run deploy` と `npm run deploy:demo` を別ジョブで実行する。
+PRでは秘密情報を使わず、型検査・テスト・両方のdry-runだけを実行する。
+漏えいをpush前に止めるため、ローカルのコミットフックも引き続き使う。
+
+### 初回設定
+
+GitHubの Settings → Secrets and variables → Actions に次のRepository secretsを登録する。
+
+| 名前 | 内容 |
+| --- | --- |
+| `CLOUDFLARE_API_TOKEN` | 配布先アカウントに限定したCloudflareの配布用APIトークン |
+| `CLOUDFLARE_ACCOUNT_ID` | 本番・デモのWorkerがあるCloudflareアカウントID |
+| `DAIFUKU_PRIVATE_RULES_SOURCE` | ローカルの `publish-rules.mjs` 全文。単独で `RULES` をexportできるもの |
+
+トークンはCloudflareのEdit Cloudflare Workersテンプレートを基に、対象アカウント・ゾーンを
+限定する。既存のCustom DomainとD1 bindingに必要な権限も確認する。
+手順は [Cloudflare公式](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/) を参照。
+Worker内の `AUTH_TOKEN` とバックアップ用 `GITHUB_TOKEN` は既存の設定を使う。
+これらをActionsへコピーしたり、デモWorkerへ追加したりする必要はない。
+
+非公開ルールは実行中だけ作業ツリー外の一時ファイルにし、検査後に削除する。
+ルール名や検査内容を公開ログへ出さないため、CIの失敗詳細はローカルで確認する。
+Secret未設定・ルール不正・検査失敗なら、本番もデモも配布しない。
+このworkflowにSecretsを渡すのは `main` のpush・手動実行だけ。
+`main` とworkflowを変更できる人は配布権限も持つため、書き込み権限を信頼する人に限定する。
+
+Cloudflare管理画面のWorkers BuildsなどでGit連携が既に有効なら、自動配布を二重にしないよう
+無効化する。初回はActionsで両方の配布成功を確認し、デモを開いて確認する。
+本番はCloudflare Accessを通って開き、認証が保たれていることを確認する。
+
+### DB変更と復旧
+
+**D1マイグレーションは自動実行しない。** 新しいスキーマが必要な変更では、既存コードとの
+互換性と復旧方法を確認し、必要なマイグレーションを手動適用してから `main` へpushする。
+旧コードと共存できない変更は、自動配布を一時停止して別途手順を組む。
+
+同じブランチの配布は直列化し、配布中の実行は新しいpushで中断しない。
+待機中の古い実行は最新の実行へ置き換わることがある。
+本番・デモの片方が失敗しても、もう片方は続行するため、両ジョブの結果を確認する。
+一時的な失敗なら最新mainの実行を再実行するか、ActionsのRun workflowで `main` を指定する。
+古いコミットの実行は配布直前に停止する。コードを戻す場合は修正をrevertして `main` へpushする。
+Workerの旧版へ戻してもDBは戻らない。DBの復旧はマイグレーションごとの手順に従う。
+失敗通知はGitHubのActions通知設定で受け取る。
+
 ## デモ版
 
 `daifuku-demo.kazuki.page`。**誰でも開ける。**
