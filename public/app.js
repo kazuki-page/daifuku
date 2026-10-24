@@ -701,11 +701,40 @@ async function showSettings() {
    要確認の行から開く。見えているのに直せないと、一覧が「読むだけの負債」になる。 */
 
 let editing = null;
+let editCategoryRequest = 0;
+
+async function loadEditCategories(kind) {
+  const request = ++editCategoryRequest;
+  const select = $('#eCategory');
+  const current = select.value;
+  const render = (categories) => {
+    const values = [...new Set([current, ...categories.map((c) => c.category)])].filter(Boolean);
+    select.innerHTML = '<option value="">（なし）</option>' + values.map((value) =>
+      `<option value="${esc(value)}">${esc(value)}</option>`).join('');
+    select.value = current;
+  };
+  render([]);
+  try {
+    const categories = await keep('cats:' + kind,
+      () => get('/api/categories?kind=' + encodeURIComponent(kind)));
+    if (request !== editCategoryRequest || !editing) return;
+    // 読み込み中に選び直した値も保持する。
+    const selected = select.value;
+    render(categories);
+    select.value = selected;
+  } catch (err) {
+    if (request !== editCategoryRequest || !editing) return;
+    $('#eErr').textContent = 'カテゴリ候補を取得できませんでした。現在の値は保持しています。';
+    $('#eErr').hidden = false;
+  }
+}
 
 function openEditor(row) {
   editing = row;
   $('#eDate').value = row.date;
   $('#eAmount').value = row.amount ? Number(row.amount).toLocaleString('ja-JP') : '';
+  $('#eCategory').innerHTML = `<option value="">（なし）</option>` +
+    (row.category ? `<option value="${esc(row.category)}">${esc(row.category)}</option>` : '');
   $('#eCategory').value = row.category ?? '';
   $('#eItem').value = row.item ?? '';
   $('#eMemo').value = row.memo ?? '';
@@ -729,6 +758,7 @@ function setEditKind(kind) {
   const t = kind === '振替';
   $('#eTransfer').hidden = !t;
   $('#eAccountWrap').hidden = t;
+  loadEditCategories(kind);
 }
 const editKind = () => $('#eKinds .on')?.dataset.kind ?? '支出';
 
